@@ -1,0 +1,38 @@
+stages:
+  - test
+  - build
+  - deploy
+
+# All available Hugo versions are listed here: https://gitlab.com/pages/hugo/container_registry
+
+build:
+  image: registry.gitlab.com/pages/hugo:hugo:0.100.0
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - echo "Building the content of ${BLOG_SITE}/ with Hugo"
+    - hugo -d ${BLOG_SITE} -b "${BLOG_RO_BASE_URL}/${BLOG_SITE}/"
+  artifacts:
+     paths:
+        - ${BLOG_SITE}/
+     expire_in: 1 week
+  only:
+    - main
+
+deploy:
+  image: registry.gitlab.com/pages/hugo:hugo:0.100.0
+  stage: deploy
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  before_script:
+    - apk update
+    - apk add curl openssh-client
+  script:
+    - echo "Content of ${BLOG_SITE}/:"
+    - ls -laFh ${BLOG_SITE}/
+    - echo "Uploading the content of ${BLOG_SITE}/ to Nexus (${BLOG_RW_BASE_URL})"
+    - find ${BLOG_SITE} -type f -exec curl -u ${NEXUS_USER}:${NEXUS_PASSWD} --ftp-create-dirs -T {} ${BLOG_RW_BASE_URL}/{} \;
+    - echo "Blog content uploaded to ${BLOG_RO_BASE_URL}/${BLOG_SITE}/"
+  only:
+    - main
